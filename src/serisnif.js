@@ -1,13 +1,15 @@
 #!/usr/bin/node --harmony
 'use strict';
 
+const fs = require('fs');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { SerialPort } = require('serialport');
 const dump = require('buffer-hexdump');
+const moment = require('moment');
 
 class SerialListener extends EventEmitter {
-    constructor(device, baud, interframeTimeout) {
+    constructor(device, baud, interframeTimeout, name) {
         super();
 
         this.serial = new SerialPort({
@@ -15,7 +17,7 @@ class SerialListener extends EventEmitter {
             baudRate: baud,
             autoOpen: false,
         });
-        this._name = device;
+        this._name = device + (name ? ' ' + name : '');
         this.timer = null;
         this.buf = null;
 
@@ -43,6 +45,35 @@ class SerialListener extends EventEmitter {
     }
 }
 
+const makeLogger = file => {
+    const logStream = fs.createWriteStream(file);
+    const queue = [];
+    var buffWaiting = false;
+
+    const write = () => {
+        while (queue.length) {
+            const line = queue.shift();
+            if (! logStream.write(line)) {
+                logStream.once('drain', write);
+                buffWaiting = true;
+                break;
+            }
+            buffWaiting = false;
+        }
+    };
+
+    logStream.on('error', err => {
+        console.error(err.message);
+        process.exit(1);
+    });
+
+    return line => {
+        queue.push(line);
+        if (queue.length > 1 || buffWaiting) return;
+        process.nextTick(write);
+    };
+};
+
 const argv = require('yargs/yargs')(process.argv.slice(2))
     .version('0.0.1')
     .alias('version', 'v')
@@ -62,7 +93,7 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
         alias: 'i',
         describe: 'inter-frame-timeout',
         type: 'numeric',
-        default: 50,
+        default: 200,
     })
     .option('baud', {
         alias: 'b',
@@ -70,18 +101,29 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
         type: 'numeric',
         default: 115200,
     })
+    .option('log', {
+        alias: 'f',
+        describe: 'log file',
+        type: 'string',
+    })
     .argv;
 
-
-var left;
-var right;
-left = argv.left ? new SerialListener(argv.left, argv.baud, argv.interFrameTimeout) : null;
-right = argv.right ? new SerialListener(argv.right, argv.baud, argv.interFrameTimeout) : null;
+const left = argv.left
+    ? new SerialListener(argv.left, argv.baud, argv.interFrameTimeout, 'left') : null;
+const right = argv.right
+    ? new SerialListener(argv.right, argv.baud, argv.interFrameTimeout, 'right') : null;
+const log = argv.log
+    ? makeLogger(argv.log) : null;
 
 [left, right].forEach(dev => {
     if (! dev) return;
     dev.on('data', data => {
+        const now = new Date();
         console.log(dev.name());
         console.log(dump(data));
+        var logLine = moment(now).format('YYYY-MM-DDTHH:mm:ss.SSSZZ');
+        logLine += ' ' + dev.name();
+        logLine += ' ' + data.toString('hex') + '\n'; 
+        if (log) log(logLine);
     });
 });
