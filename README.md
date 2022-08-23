@@ -44,3 +44,8 @@ Options:
 
 By default, the log file will automatically split once it reaached size of 10M.
 The size limit can be configured by '-s N', where N is in Kilo-byte.
+
+## Screenshot
+
+![](doc/screenshot.png)
+
