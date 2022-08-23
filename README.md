@@ -21,18 +21,26 @@ $ npm install
 
 Linux:
 ```bash
-./bin/serisnif --left /dev/ttyUSB0 --right /dev/ttyUSB1 -b 9600
+./bin/serisnif -l /dev/ttyUSB0 -L foo -r /dev/ttyUSB1 -R bar -b 9600 -f foo-bar.log
 ```
 
 Windows:
 ```bash
-node ./src/serisnif.js --left /dev/ttyUSB0 --right /dev/ttyUSB1 -b 9600
+node ./src/serisnif.js -l -L foo COM1 -r COM2 -R bar -b 9600 -f foo-bar.log
 ```
 
 Options:
 
-- `-l --left`: left side device
-- `-r --right`: right side device
+- `-l --left dev`: left side device
+- `-L --lefttName name`: left side device name
+- `-r --right dev`: right side device
+- `-R --rightName name`: right side device name
 - `-b --baud`: baud rate
-- `-i --inter-frame-timeout`: inter-fame timeout time in ms
+- `-f --file filename`: save logs into a file 
+- `-i --inter-frame-timeout n`: inter-fame timeout time in ms
 - `-h --help`: help
+
+## Log File Max Size
+
+By default, the log file will automatically split once it reaached size of 10M.
+The size limit can be configured by '-s N', where N is in Kilo-byte.
